@@ -7,6 +7,8 @@ import java.io.IOException;
 import android.util.Log;
 
 public class Calibrate {
+   final int MARGIN_X = 30;
+   final int MARGIN_Y = 30;
     private calibration cal;
 
     public Calibrate() {
@@ -35,13 +37,13 @@ public class Calibrate {
         // Get sums for matrix
         n = x = y = x2 = y2 = xy = 0;
         for (j = 0; j < 5; j++) {
+	     Log.i("Calibrate", "perform_calibration:"+j+" cal_x"+cal.x[j]+": "+cal.y[j]);
             n += 1.0;
             x += (float)cal.x[j];
             y += (float)cal.y[j];
             x2 += (float)(cal.x[j] * cal.x[j]);
             y2 += (float)(cal.y[j] * cal.y[j]);
-            xy += (float)(cal.x[j] * cal.y[j]);
-            Log.i("Calibrate", "perform_calibration:"+j+" cal_x"+cal.x[j]+": "+cal.y[j]);
+            xy += (float)(cal.x[j] * cal.y[j]);            
         }
 	
         // Get determinant of matrix -- check if determinant is too small
@@ -62,10 +64,10 @@ public class Calibrate {
         // Get sums for x calibration
         z = zx = zy = 0;
         for (j = 0; j < 5; j++) {
+	     Log.i("Calibrate", "perform_calibration:"+j+" cal_xyfb"+cal.xfb[j]+": "+cal.yfb[j]);
             z += (float)cal.xfb[j];
             zx += (float)(cal.xfb[j] * cal.x[j]);
             zy += (float)(cal.xfb[j] * cal.y[j]);
-            Log.i("Calibrate", "perform_calibration:"+j+" cal_xyfb"+cal.xfb[j]+": "+cal.yfb[j]);
         }
 
         // Now multiply out to get the calibration for framebuffer x coord
@@ -109,8 +111,8 @@ public class Calibrate {
 
         cal.xfb[index] = x;
         cal.yfb[index] = y;
-        Log.i("Calibrate", "get_sample"+"xy: "+cal.x[index]+": "+cal.y[index]);
-        Log.i("Calibrate", "get_sample"+"xyfb: "+cal.xfb[index]+": "+cal.yfb[index]);
+        Log.i("Calibrate", "get_sample"+"xy: "+index+"="+cal.x[index]+": "+cal.y[index]);
+        Log.i("Calibrate", "get_sample"+"xyfb: "+index+"="+cal.xfb[index]+": "+cal.yfb[index]);
     }
     int get_cal_x(int x, int y) {
 	float cal_x;
@@ -122,10 +124,40 @@ public class Calibrate {
 	cal_y =(float) (cal.a[3] + cal.a[4] * x +cal.a[5] * y) /  cal.a[6];
 	return (int)cal_y;
     }	
+
+    //add by woojoy TJD
+    boolean validate_calibrate() {
+      int real_x;
+      int real_y;
+      int flag = 1;
+	for (int i=0; i<5; i++) {
+		Log.i("Calibrate", "validate_calibrate "+" raw-xy: "+cal.x[i]+": "+cal.y[i]);
+		Log.i("Calibrate", "validate_calibrate "+"ref-xy: "+cal.xfb[i]+": "+cal.yfb[i]);
+		real_x = get_cal_x(cal.x[i],  cal.y[i]);
+		real_y = get_cal_y(cal.x[i],  cal.y[i]);
+		if (Math.abs(real_x-cal.xfb[i]) > MARGIN_X
+			||Math.abs(real_y-cal.yfb[i]) > MARGIN_Y) {
+			flag = 0;
+		}
+		Log.i("Calibrate", "validate_calibrate "+" real_X:Y =  "+real_x+": "+real_y);
+		Log.i("Calibrate", "validate_calibrate "+" margin_X:Y= "+Math.abs(real_x-cal.xfb[i])+": "+Math.abs(real_y-cal.yfb[i]));
+	}
+	if (flag == 0)
+		return false;
+	return true;
+   }
+   //end add
     int calibrate_main() {
         int result = 0;
         Log.i("Calibrate", "calibrate_main");
         if (perform_calibration()) {
+
+		//add by woojoy TJD
+		if (validate_calibrate()==false) {
+			Log.i("Calibrate", "calibrate data invalidate");
+			return -2;
+		}
+		//end add
             String strPara = String.format("%d %d %d %d %d %d %d", cal.a[1], cal.a[2], cal.a[0],
                     cal.a[4], cal.a[5], cal.a[3], cal.a[6]);
 
